@@ -1,0 +1,41 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+uint width;
+uint height;
+
+uint numAgents;
+float moveSpeed;
+float deltaTime;
+
+struct Agent {
+    float2 position;
+    float angle;
+};
+
+RWTexture2D<float4> TrailMap;
+RWStructuredBuffer<Agent> agents;
+
+[numthreads(16,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x < 0 || id.x >= width || id.y < 0 || id.y >= height) return;
+    if (id.x >= numAgents) return;
+    
+    Agent agent = agents[id.x];
+    uint random = (sin(id.x * 71.01) * 500461564) + agent.position.x + agent.position.y;
+
+    float2 direction = float2(cos(agent.angle), sin(agent.angle));
+    float2 newPos = agent.position + direction * moveSpeed * deltaTime;
+
+    if (newPos.x < 0 || newPos.x >= width || newPos.y < 0 || newPos.y >= height) {
+        newPos.x = min(width-0.01, max(0, newPos.x));
+        newPos.y = min(height-0.01, max(0, newPos.y));
+        agents[id.x].angle = random;
+    }
+    agents[id.x].position = newPos;
+
+    TrailMap[int2(newPos.x, newPos.y)] = 1;
+}
