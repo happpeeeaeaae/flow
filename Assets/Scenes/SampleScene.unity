@@ -163,7 +163,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   computeShader: {fileID: 7200000, guid: 37d28d7a0c2f20b4288cbe53e8773f93, type: 3}
-  renderTexture: {fileID: 0}
+  numAgents: 640000
+  width: 1920
+  height: 1080
+  speed: 1000
+  decayRate: 1
+  sideAttractionThreshhold: 0
+  sideAttractionWeight: 1
+  centerAttractionThreshhold: 0
+  centerAttractionWeight: 1
+  sensorAngle: 20
+  sensorDistance: 25
+  turnSpeed: 300
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0

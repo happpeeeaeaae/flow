@@ -1,41 +1,176 @@
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
+#pragma kernel Render
+#pragma kernel Flow
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-uint width;
-uint height;
-
-uint numAgents;
-float moveSpeed;
-float deltaTime;
-
 struct Agent {
     float2 position;
-    float angle;
+    float2 direction;
 };
+
+
+float Randomize(uint s)
+{
+    s ^= 2747636419u;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    s ^= s >> 16;
+    s *= 2654435769u;
+    return float(s) / 4294967295.0;
+}
+
+float Random(Agent a) {
+    return Randomize(a.position.x * 3.56 + a.position.y + 11);
+}
+
+uint numAgents;
+uint width;
+uint height;
+float speed;
+float dt;
+float decayRate;
+float sideAttractionThreshhold;
+float sideAttractionWeight;
+float centerAttractionThreshhold;
+float centerAttractionWeight;
+float turnSpeed;
+float sensorAngle;
+float sensorDistance;
+
+Agent Bounce(Agent a)
+{
+    if (a.position.x < 0 ) {
+        a.position.x = 0;
+        a.direction.x = -a.direction.x;
+    }
+    if (a.position.x > width) {
+        a.position.x = width;
+        a.direction.x = -a.direction.x;
+    }
+    if (a.position.y < 0) {
+        a.position.y = 0;
+        a.direction.y = -a.direction.y;
+    }
+    if (a.position.y > height) {
+        a.position.y = height;
+        a.direction.y = -a.direction.y;
+    }
+    return a;
+}
+
+float2 RightSensor(Agent a)
+{
+    return float2
+        (
+            a.position.x + (cos(-sensorAngle) * a.direction.x - sin(-sensorAngle) * a.direction.y) * sensorDistance,
+            a.position.y + (sin(-sensorAngle) * a.direction.x + cos(-sensorAngle) * a.direction.y) * sensorDistance
+        );
+}
+
+float2 LeftSensor(Agent a)
+{
+    return float2
+        (
+            a.position.x + (cos(sensorAngle) * a.direction.x - sin(sensorAngle) * a.direction.y) * sensorDistance,
+            a.position.y + (sin(sensorAngle) * a.direction.x + cos(sensorAngle) * a.direction.y) * sensorDistance
+        );
+}
+
+float2 CenterSensor(Agent a)
+{
+    return float2
+        (
+            a.position.x + sensorDistance * a.direction.x,
+            a.position.y + sensorDistance * a.direction.y
+        );
+}
+
+float2 TurnRight(Agent a)
+{
+    return float2
+        (
+            (cos(-turnSpeed) * a.direction.x - sin(-turnSpeed) * a.direction.y),
+            (sin(-turnSpeed) * a.direction.x + cos(-turnSpeed) * a.direction.y)
+        );
+}
+
+float2 TurnLeft(Agent a)
+{
+    return float2
+        (
+            (cos(turnSpeed) * a.direction.x - sin(turnSpeed) * a.direction.y),
+            (sin(turnSpeed) * a.direction.x + cos(turnSpeed) * a.direction.y)
+        );
+}
 
 RWTexture2D<float4> TrailMap;
 RWStructuredBuffer<Agent> agents;
 
-[numthreads(16,1,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+[numthreads(8,8,1)]
+void Render (uint3 id : SV_DispatchThreadID)
 {
-    if (id.x < 0 || id.x >= width || id.y < 0 || id.y >= height) return;
-    if (id.x >= numAgents) return;
-    
-    Agent agent = agents[id.x];
-    uint random = (sin(id.x * 71.01) * 500461564) + agent.position.x + agent.position.y;
+    float4 blurValue = 0;
+    for (int offsetX = -1; offsetX <= 1; offsetX++)
+        for (int offsetY = -1; offsetY <= 1; offsetY++)
+        {
+            int x = id.x + offsetX;
+            int y = id.y + offsetY;
+            if (x >= 0 && x < width && y >= 0 && y < height)
+                blurValue += TrailMap[int2(x, y)];
+        }
+    blurValue /= 9;
 
-    float2 direction = float2(cos(agent.angle), sin(agent.angle));
-    float2 newPos = agent.position + direction * moveSpeed * deltaTime;
-
-    if (newPos.x < 0 || newPos.x >= width || newPos.y < 0 || newPos.y >= height) {
-        newPos.x = min(width-0.01, max(0, newPos.x));
-        newPos.y = min(height-0.01, max(0, newPos.y));
-        agents[id.x].angle = random;
-    }
-    agents[id.x].position = newPos;
-
-    TrailMap[int2(newPos.x, newPos.y)] = 1;
+    TrailMap[id.xy] = blurValue;
+    TrailMap[id.xy] -= decayRate * dt;
 }
+
+[numthreads(64,1,1)]
+void Flow (uint3 id : SV_DispatchThreadID)
+{
+    Agent agent = agents[id.x];
+    float2 newPos = float2
+        (
+        agent.position.x + agent.direction.x * dt * speed
+        , agent.position.y + agent.direction.y * dt * speed
+        );
+
+    agent.position = newPos;
+    agent = Bounce(agent);
+
+    float2 rightSensor = RightSensor(agent);
+    float2 leftSensor = LeftSensor(agent);
+    float2 centerSensor = CenterSensor(agent);
+
+    float rightSignal = (TrailMap[rightSensor].x + TrailMap[rightSensor].y + TrailMap[rightSensor].z) / 3 * sideAttractionWeight;
+    float leftSignal = (TrailMap[leftSensor].x + TrailMap[leftSensor].y + TrailMap[leftSensor].z) / 3 * sideAttractionWeight;
+    float centerSignal = (TrailMap[centerSensor].x + TrailMap[centerSensor].y + TrailMap[centerSensor].z) / 3 * centerAttractionWeight;
+
+    float strongestSignal = max(max(rightSignal, leftSignal), centerSignal);
+
+    if (centerSignal == strongestSignal);
+    else if (rightSignal == strongestSignal) agent.direction = TurnRight(agent);
+    else if (leftSignal == strongestSignal) agent.direction = TurnLeft(agent);
+
+    agents[id.x] = agent;
+    TrailMap[newPos] = 1;
+    /*
+    TrailMap[newPos] = float4(
+            0.2 + centerSignal * 0.8,
+            0.2 + rightSignal * 0.8,
+            0.2 + leftSignal * 0.8,
+            1
+        );
+        */
+}
+
+
+
+    /*
+    float2 tempPos = float2
+        (
+        Random(uint(agent.position.x * id.x * 17.44 * 11 + 11)) * width,
+        Random(uint(agent.position.y * id.x * 17.56 * 17 + 10)) * height
+        );
+    */
