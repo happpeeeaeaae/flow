@@ -9,7 +9,6 @@ struct Agent {
     float2 direction;
 };
 
-
 float Randomize(uint s)
 {
     s ^= 2747636419u;
@@ -26,8 +25,9 @@ float Random(Agent a) {
 }
 
 uint numAgents;
-uint width;
-uint height;
+int width;
+int height;
+uint diffuseSize;
 float speed;
 float dt;
 float decayRate;
@@ -38,8 +38,9 @@ float centerAttractionWeight;
 float turnSpeed;
 float sensorAngle;
 float sensorDistance;
+bool randomBounce;
 
-Agent Bounce(Agent a)
+Agent MirrorBounce(Agent a)
 {
     if (a.position.x < 0 ) {
         a.position.x = 0;
@@ -58,6 +59,38 @@ Agent Bounce(Agent a)
         a.direction.y = -a.direction.y;
     }
     return a;
+}
+
+Agent RandomBounce(Agent a)
+{
+    if (a.position.x < 0 ) {
+        a.position.x = 0;
+        a.direction.x = Random(a);
+        a.direction.y = Random(a) - 0.5;
+    }
+    if (a.position.x > width) {
+        a.position.x = width;
+        a.direction.x = -Random(a);
+        a.direction.y = Random(a) - 0.5;
+    }
+    if (a.position.y < 0) {
+        a.position.y = 0;
+        a.direction.y = Random(a);
+        a.direction.x = Random(a) - 0.5;
+    }
+    if (a.position.y > height) {
+        a.position.y = height;
+        a.direction.y = -Random(a);
+        a.direction.x = Random(a) - 0.5;
+    }
+    a.direction = normalize(a.direction);
+    return a;
+}
+
+Agent Bounce(Agent a)
+{
+    if (randomBounce) return RandomBounce(a);
+    else return MirrorBounce(a);
 }
 
 float2 RightSensor(Agent a)
@@ -111,17 +144,17 @@ RWStructuredBuffer<Agent> agents;
 [numthreads(8,8,1)]
 void Render (uint3 id : SV_DispatchThreadID)
 {
+    int diff = (diffuseSize - 1) / 2;
     float4 blurValue = 0;
-    for (int offsetX = -1; offsetX <= 1; offsetX++)
-        for (int offsetY = -1; offsetY <= 1; offsetY++)
+    for (int offsetX = -diff; offsetX <= diff; offsetX++)
+        for (int offsetY = -diff; offsetY <= diff; offsetY++)
         {
             int x = id.x + offsetX;
             int y = id.y + offsetY;
             if (x >= 0 && x < width && y >= 0 && y < height)
                 blurValue += TrailMap[int2(x, y)];
         }
-    blurValue /= 9;
-
+    blurValue /= pow(((diff * 2) + 1), 2);
     TrailMap[id.xy] = blurValue;
     TrailMap[id.xy] -= decayRate * dt;
 }
@@ -130,11 +163,7 @@ void Render (uint3 id : SV_DispatchThreadID)
 void Flow (uint3 id : SV_DispatchThreadID)
 {
     Agent agent = agents[id.x];
-    float2 newPos = float2
-        (
-        agent.position.x + agent.direction.x * dt * speed
-        , agent.position.y + agent.direction.y * dt * speed
-        );
+    float2 newPos = agent.position + agent.direction * speed * dt;
 
     agent.position = newPos;
     agent = Bounce(agent);
@@ -155,17 +184,7 @@ void Flow (uint3 id : SV_DispatchThreadID)
 
     agents[id.x] = agent;
     TrailMap[newPos] = 1;
-    /*
-    TrailMap[newPos] = float4(
-            0.2 + centerSignal * 0.8,
-            0.2 + rightSignal * 0.8,
-            0.2 + leftSignal * 0.8,
-            1
-        );
-        */
 }
-
-
 
     /*
     float2 tempPos = float2

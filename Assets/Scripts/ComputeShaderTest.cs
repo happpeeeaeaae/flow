@@ -8,6 +8,12 @@ struct Agent
     public Vector2 direction;
 };
 
+public enum Config
+{
+    FromCenter,
+    RandomSpread
+}
+
 public class ComputeShaderTest : MonoBehaviour
 {
 
@@ -17,10 +23,16 @@ public class ComputeShaderTest : MonoBehaviour
     public int width = 1920;
     public int height = 1080;
 
-    public float speed = 1000;
-
-    [Range(0 , 5)]
+    [Range(0, 240)]
+    public int targetFrameRate = 120;
+    [Range(0, 0.1f)]
+    public float dt = 0.005f;
+    [Range(0 , 10)]
     public float decayRate = 1;
+
+    [Range(0, 600)]
+    public float speed = 600;
+
     [Range(0, 1)]
     public float sideAttractionThreshhold = 0.0f;
     [Range(0, 1)]
@@ -28,13 +40,20 @@ public class ComputeShaderTest : MonoBehaviour
     [Range(0, 1)]
     public float centerAttractionThreshhold = 0.0f;
     [Range(0, 1)]
-    public float centerAttractionWeight = 1f;
+    public float centerAttractionWeight = 0.8f;
     [Range(0, 180)]
     public float sensorAngle = 20;
     [Range(0, 500)]
     public float sensorDistance = 25;
-    [Range(0, 1000)]
+    [Range(0, 10000)]
     public float turnSpeed = 300;
+
+    [Range(1, 30)]
+    public int diffuseSize = 3;
+
+    public bool randomBounce = true;
+
+    public Config initialConfig = Config.RandomSpread;
 
     RenderTexture renderTexture;
     ComputeBuffer agentBuffer;
@@ -68,15 +87,33 @@ public class ComputeShaderTest : MonoBehaviour
     void initializeAgents()
     {
         agents = new Agent[numAgents];
-        for (var i = 0; i < agents.Length; i++)
-        {
-            var bigNum = 1000000;
-            var direction = new Vector2(Random.Range(-bigNum, bigNum), Random.Range(-bigNum, bigNum));
-            direction.Normalize();
+        var bigNum = 1000000;
 
-            agents[i].position = new Vector2(width / 2, height / 2);
-            agents[i].direction = direction;
+        switch (initialConfig)
+        {
+            case Config.FromCenter:
+                for (var i = 0; i < agents.Length; i++)
+                {
+                    var direction = new Vector2(Random.Range(-bigNum, bigNum), Random.Range(-bigNum, bigNum));
+                    direction.Normalize();
+
+                    agents[i].position = new Vector2(width / 2, height / 2);
+                    agents[i].direction = direction;
+                }
+            break;
+            case Config.RandomSpread:
+                for (var i = 0; i < agents.Length; i++)
+                {
+                    var direction = new Vector2(Random.Range(-bigNum, bigNum), Random.Range(-bigNum, bigNum));
+                    direction.Normalize();
+
+                    agents[i].position = new Vector2(Random.Range(0, width - 1), Random.Range(0, height - 1));
+                    agents[i].direction = direction;
+                }
+                break;
         }
+
+
             agentBuffer = new ComputeBuffer(numAgents, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Agent)));
             agentBuffer.SetData(agents);
     }
@@ -90,9 +127,12 @@ public class ComputeShaderTest : MonoBehaviour
 
     void setMutualShaderValues()
     {
+        computeShader.SetBool("randomBounce", randomBounce);
+        computeShader.SetInt("numAgents", numAgents);
         computeShader.SetInt("numAgents", numAgents);
         computeShader.SetInt("width", width);
         computeShader.SetInt("height", height);
+        computeShader.SetInt("diffuseSize", diffuseSize);
         computeShader.SetFloat("speed", speed);
         computeShader.SetFloat("decayRate", decayRate);
         computeShader.SetFloat("sideAttractionThreshhold", sideAttractionThreshhold);
@@ -102,7 +142,7 @@ public class ComputeShaderTest : MonoBehaviour
         computeShader.SetFloat("turnSpeed", smootheTurnAngle());
         computeShader.SetFloats("sensorAngle", sensorAngle * Mathf.Deg2Rad);
         computeShader.SetFloats("sensorDistance", sensorDistance);
-        computeShader.SetFloat("dt", Time.deltaTime);
+        computeShader.SetFloat("dt", dt);
     }
 
     void dispatchShaders()
@@ -122,7 +162,6 @@ public class ComputeShaderTest : MonoBehaviour
 
     void Start()
     {
-        Application.targetFrameRate = 60;
 
         renderTexture = new RenderTexture(width, height, 24);
         renderTexture.enableRandomWrite = true;
@@ -134,12 +173,8 @@ public class ComputeShaderTest : MonoBehaviour
 
     private void Update()
     {
-        if (Time.frameCount < 10) return; // there is a massive drop in fps in the 3rd tick. just skipping the first few to dodge.
-
-        Debug.Log(agents[0].position);
-
+        Application.targetFrameRate = targetFrameRate;
         dispatchShaders();
-
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)

@@ -140,7 +140,7 @@ GameObject:
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 4294967295
   m_IsActive: 1
 --- !u!81 &519420029
 AudioListener:
@@ -149,7 +149,7 @@ AudioListener:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 519420028}
-  m_Enabled: 1
+  m_Enabled: 0
 --- !u!114 &519420030
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -163,18 +163,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   computeShader: {fileID: 7200000, guid: 37d28d7a0c2f20b4288cbe53e8773f93, type: 3}
-  numAgents: 640000
+  numAgents: 2000000
   width: 1920
   height: 1080
-  speed: 1000
-  decayRate: 1
+  targetFrameRate: 240
+  dt: 0.005
+  decayRate: 2
+  speed: 300
   sideAttractionThreshhold: 0
   sideAttractionWeight: 1
   centerAttractionThreshhold: 0
-  centerAttractionWeight: 1
-  sensorAngle: 20
-  sensorDistance: 25
-  turnSpeed: 300
+  centerAttractionWeight: 0.8
+  sensorAngle: 8
+  sensorDistance: 15
+  turnSpeed: 500
+  diffuseSize: 3
+  initialConfig: 1
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0
@@ -184,8 +188,8 @@ Camera:
   m_GameObject: {fileID: 519420028}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 4
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -206,7 +210,7 @@ Camera:
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
