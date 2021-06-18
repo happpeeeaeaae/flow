@@ -157,7 +157,6 @@ public class ComputeShaderTest : MonoBehaviour
         computeShader.SetBuffer(flowKernel, "agents", agentBuffer);
         computeShader.Dispatch(flowKernel, numAgents / flowThreadGroupSize, 1, 1);
         agentBuffer.GetData(agents);
-
     }
 
     void Start()
