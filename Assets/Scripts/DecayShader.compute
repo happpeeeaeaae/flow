@@ -1,0 +1,14 @@
+#pragma kernel Decay
+
+float trailLife;
+float dt;
+
+RWTexture2D<float4> TrailMap;
+
+[numthreads(8,8,1)]
+void Decay (uint3 id : SV_DispatchThreadID)
+{
+    //decays the trailmap
+    if(trailLife == 0) TrailMap[id.xy] = 0;
+    else if (trailLife < 6) TrailMap[id.xy] -= (1 /trailLife) * dt;
+}

@@ -162,23 +162,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 77e65ccef28d3d743a4bb9136d022a3b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  computeShader: {fileID: 7200000, guid: 37d28d7a0c2f20b4288cbe53e8773f93, type: 3}
-  numAgents: 2000000
+  flowShader: {fileID: 7200000, guid: 37d28d7a0c2f20b4288cbe53e8773f93, type: 3}
+  diffuseShader: {fileID: 7200000, guid: fbb4cca6653552747945c34673d1aac1, type: 3}
+  decayShader: {fileID: 7200000, guid: c0f85a1513d0aee4388dde40d2d143e5, type: 3}
+  drawAgentShader: {fileID: 7200000, guid: ec3ebc77bd76fcb43be65037a132f283, type: 3}
+  numAgents: 1000000
   width: 1920
   height: 1080
   targetFrameRate: 240
-  dt: 0.005
-  decayRate: 2
-  speed: 300
-  sideAttractionThreshhold: 0
+  trailLife: 1
+  speed: 100
   sideAttractionWeight: 1
-  centerAttractionThreshhold: 0
-  centerAttractionWeight: 0.8
-  sensorAngle: 8
-  sensorDistance: 15
-  turnSpeed: 500
-  diffuseSize: 3
+  centerAttractionWeight: 1
+  sensorDistance: 50
+  sensorAngle: 10
+  turnStrenth: 100
+  diffuseSize: 1
+  randomBounce: 1
   initialConfig: 1
+  R: 1
+  G: 1
+  B: 1
+  showTrail: 1
+  colorAgent: 1
+  highlightGuideAgent: 0
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0

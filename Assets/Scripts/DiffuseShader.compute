@@ -1,0 +1,22 @@
+#pragma kernel DiffuseImage
+
+int width;
+int height;
+
+RWTexture2D<float4> TrailMap;
+
+[numthreads(8,8,1)]
+void DiffuseImage (uint3 id : SV_DispatchThreadID)
+{
+    float4 blurValue = 0;
+    for (int offsetX = -1; offsetX <= 1; offsetX++)
+        for (int offsetY = -1; offsetY <= 1; offsetY++)
+        {
+            int x = id.x + offsetX;
+            int y = id.y + offsetY;
+            if (x >= 0 && x < width && y >= 0 && y < height)
+                blurValue += TrailMap[int2(x, y)];
+        }
+    blurValue /= 9;
+    TrailMap[id.xy] = blurValue;
+}

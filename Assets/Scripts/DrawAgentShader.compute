@@ -1,0 +1,53 @@
+#pragma kernel DrawAgent
+
+struct Agent {
+    float2 position;
+    float2 direction;
+};
+
+uint diffuseSize;
+int width;
+int height;
+float4 color;
+bool showTrail;
+bool colorAgent;
+bool highlightGuideAgent;
+
+RWTexture2D<float4> AgentMap;
+RWTexture2D<float4> TrailMap;
+RWTexture2D<float4> RenderMap;
+
+RWStructuredBuffer<Agent> agents;
+
+[numthreads(8,8,1)]
+void DrawAgent (uint3 id : SV_DispatchThreadID)
+{
+    //cleanup the canves
+    RenderMap[id.xy] = 0;
+
+
+    //renders the agent, or the tail if condition is met
+    if (AgentMap[id.xy].x == 1) {
+        if (colorAgent) RenderMap[id.xy] = color;
+        else RenderMap[id.xy] = 1;
+    } else if (showTrail) RenderMap[id.xy] = color * length(TrailMap[id.xy]);
+    
+    //paint the guide agent red
+    int2 p = agents[0].position;
+    if (highlightGuideAgent && id.x == p.x && id.y == p.y) {
+        int diff = (diffuseSize - 1) / 2;
+        float4 blurValue = 0;
+        for (int offsetX = -diff; offsetX <= diff; offsetX++)
+            for (int offsetY = -diff; offsetY <= diff; offsetY++)
+            {
+                int x = id.x + offsetX;
+                int y = id.y + offsetY;
+                if (x >= 0 && x < width && y >= 0 && y < height){
+                    RenderMap[int2(x, y)] = float4(1,0,0,1);
+                }
+            }
+        }
+
+    AgentMap[id.xy] = 0; // cleaning agent map is part of logic
+}
+
