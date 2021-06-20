@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 struct Agent
@@ -31,6 +32,8 @@ public class SimulationCycle : MonoBehaviour
     public int width = 1920;
     public int height = 1080;
 
+    [Range(1, 3)]
+    public int numAgentTypes = 3;
     [Range(0, 240)]
     public int targetFrameRate = 240;
     [Range(0 , 6)]
@@ -51,7 +54,7 @@ public class SimulationCycle : MonoBehaviour
     public float turnStrenth = 100;
 
     [Range(1, 30)]
-    public int diffuseSize = 1;
+    public int guideSize = 1;
 
     public bool randomBounce = true;
 
@@ -62,15 +65,150 @@ public class SimulationCycle : MonoBehaviour
     public float G = 1;
     [Range(0, 1)]
     public float B = 1;
+
+    [Range(0, 1)]
+    public float R2 = 0;
+    [Range(0, 1)]
+    public float G2 = 1;
+    [Range(0, 1)]
+    public float B2 = 0;
+
+    [Range(0, 1)]
+    public float R3 = 0;
+    [Range(0, 1)]
+    public float G3 = 0;
+    [Range(0, 1)]
+    public float B3 = 1;
+
     public bool showTrail = true;
     public bool colorAgent = true;
     public bool highlightGuideAgent = false;
+    public bool whiteAgentPixel = true;
+
+    public bool simHasStarted = false;
 
     RenderTexture renderMap;
     RenderTexture agentMap;
     RenderTexture trailMap;
 
     ComputeBuffer agentBuffer;
+
+    // setters. might be tied to "on value change" of slide bar
+    public void SetTargetFrameRate(float frameRate)
+    {
+        targetFrameRate = (int) frameRate;
+    }
+    public void SetTrailLife(float trailLife)
+    {
+        this.trailLife = trailLife;
+    }
+    public void SetSpeed(float speed)
+    {
+        this.speed = speed;
+    }
+    public void SetSideAttractionWeight(float sideAttractionWeight)
+    {
+        this.sideAttractionWeight = sideAttractionWeight;
+    }
+    public void SetCenterAttractionWeight(float centerAttractionWeight)
+    {
+        this.centerAttractionWeight = centerAttractionWeight;
+    }
+    public void SetSensorDistance(float sensorDistance)
+    {
+        this.sensorDistance = sensorDistance;
+    }
+    public void SetSensorAngle(float sensorAngle)
+    {
+        this.sensorAngle = sensorAngle;
+    }
+    public void SetTurnStrenth(float turnStrenth)
+    {
+        this.turnStrenth = turnStrenth;
+    }
+    public void SetGuideSize(float guideSize)
+    {
+        this.guideSize = (int) (guideSize * 2 - 1);
+    }
+    public void SetR(float R)
+    {
+        this.R = R / 255;
+    }
+    public void SetG(float G)
+    {
+        this.G = G / 255;
+    }
+    public void SetB(float B)
+    {
+        this.B = B / 255;
+    }
+    public void SetR2(float R2)
+    {
+        this.R2 = R2 / 255;
+    }
+    public void SetG2(float G2)
+    {
+        this.G2 = G2 / 255;
+    }
+    public void SetB2(float B2)
+    {
+        this.B2 = B2 / 255;
+    }
+    public void SetR3(float R3)
+    {
+        this.R3 = R3 / 255;
+    }
+    public void SetG3(float G3)
+    {
+        this.G3 = G3 / 255;
+    }
+    public void SetB3(float B3)
+    {
+        this.B3 = B3 / 255;
+    }
+    public void SetShowTrail(bool showTrail)
+    {
+        this.showTrail = showTrail;
+    }
+    public void SetColorAgent(bool colorAgent)
+    {
+        this.colorAgent = colorAgent;
+    }
+    public void SetHighlightGuideAgent(bool highlightGuideAgent)
+    {
+        this.highlightGuideAgent = highlightGuideAgent;
+    }
+    public void SetRandomBounce(bool randomBounce)
+    {
+        this.randomBounce = randomBounce;
+    }
+    public void SetNumAgents(string numAgents)
+    {
+        this.numAgents = Convert.ToInt32(numAgents);
+    }
+    public void SetWidth(string width)
+    {
+        this.width = Convert.ToInt32(width);
+    }
+    public void SetHeight(string height)
+    {
+        this.height = Convert.ToInt32(height);
+    }
+    public void SetNumAgentTypes(float numAgentTypes)
+    {
+        int n = (int) numAgentTypes;
+        if (n > 3) n = 3;
+        this.numAgentTypes = n;
+    }
+    public void SetInitialConfig(int configIndex)
+    {
+        if (configIndex == 0) initialConfig = Config.FromCenter;
+        if (configIndex == 1) initialConfig = Config.RandomSpread;
+    }
+    public void SetWhiteAgentPixel(bool whiteAgentPixel)
+    {
+        this.whiteAgentPixel = whiteAgentPixel;
+    }
 
     Agent[] agents;
 
@@ -84,7 +222,7 @@ public class SimulationCycle : MonoBehaviour
             case Config.FromCenter:
                 for (var i = 0; i < agents.Length; i++)
                 {
-                    var direction = new Vector2(Random.Range(-bigNum, bigNum), Random.Range(-bigNum, bigNum));
+                    var direction = new Vector2(UnityEngine.Random.Range(-bigNum, bigNum), UnityEngine.Random.Range(-bigNum, bigNum));
                     direction.Normalize();
 
                     agents[i].position = new Vector2(width / 2, height / 2);
@@ -94,10 +232,10 @@ public class SimulationCycle : MonoBehaviour
             case Config.RandomSpread:
                 for (var i = 0; i < agents.Length; i++)
                 {
-                    var direction = new Vector2(Random.Range(-bigNum, bigNum), Random.Range(-bigNum, bigNum));
+                    var direction = new Vector2(UnityEngine.Random.Range(-bigNum, bigNum), UnityEngine.Random.Range(-bigNum, bigNum));
                     direction.Normalize();
 
-                    agents[i].position = new Vector2(Random.Range(0, width - 1), Random.Range(0, height - 1));
+                    agents[i].position = new Vector2(UnityEngine.Random.Range(0, width - 1), UnityEngine.Random.Range(0, height - 1));
                     agents[i].direction = direction;
                 }
                 break;
@@ -122,7 +260,7 @@ public class SimulationCycle : MonoBehaviour
         trailMap.Create();
     }
 
-    float[] getColor()
+    float[] getColor(float R, float G, float B)
     {
         float[] color = { R, G, B, 1};
         return color;
@@ -138,6 +276,7 @@ public class SimulationCycle : MonoBehaviour
         flowShader.SetBool("randomBounce", randomBounce);
         flowShader.SetInt("width", width);
         flowShader.SetInt("height", height);
+        flowShader.SetInt("agentTypeSize", (int) (numAgents / numAgentTypes));
         flowShader.SetFloat("speed", speed);
         flowShader.SetFloat("sideAttractionWeight", sideAttractionWeight);
         flowShader.SetFloat("centerAttractionWeight", centerAttractionWeight);
@@ -167,7 +306,6 @@ public class SimulationCycle : MonoBehaviour
 
     void dispatchDiffuseShader()
     {
-        diffuseShader.SetInt("diffuseSize", diffuseSize);
         diffuseShader.SetInt("width", width);
         diffuseShader.SetInt("height", height);
 
@@ -178,13 +316,16 @@ public class SimulationCycle : MonoBehaviour
 
     void dispatchDrawAgentShader()
     {
-        drawAgentShader.SetInt("diffuseSize", diffuseSize);
+        drawAgentShader.SetInt("guideSize", guideSize);
         drawAgentShader.SetInt("width", width);
         drawAgentShader.SetInt("height", height);
         drawAgentShader.SetBool("showTrail", showTrail);
         drawAgentShader.SetBool("colorAgent", colorAgent);
         drawAgentShader.SetBool("highlightGuideAgent", highlightGuideAgent);
-        drawAgentShader.SetFloats("color", getColor());
+        drawAgentShader.SetBool("whiteAgentPixel", whiteAgentPixel);
+        drawAgentShader.SetFloats("color", getColor(R, G, B));
+        drawAgentShader.SetFloats("color2", getColor(R2, G2, B2));
+        drawAgentShader.SetFloats("color3", getColor(R3, G3, B3));
 
         drawAgentShader.SetTexture(KERNEL_NUM, "AgentMap", agentMap);
         drawAgentShader.SetTexture(KERNEL_NUM, "TrailMap", trailMap);
@@ -202,14 +343,21 @@ public class SimulationCycle : MonoBehaviour
         dispatchDrawAgentShader();
     }
 
-    void Start()
+    public void StartSimulation()
     {
         initializeMaps();
         initializeAgents();
+        simHasStarted = true;
+    }
+
+    void Start()
+    {
+        // StartSimulation();
     }
 
     private void Update()
     {
+        if (!simHasStarted) return;
         Application.targetFrameRate = targetFrameRate;
         dispatchShaders();
     }

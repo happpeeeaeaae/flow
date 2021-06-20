@@ -5,13 +5,17 @@ struct Agent {
     float2 direction;
 };
 
-uint diffuseSize;
+
+uint guideSize;
 int width;
 int height;
 float4 color;
+float4 color2;
+float4 color3;
 bool showTrail;
 bool colorAgent;
 bool highlightGuideAgent;
+bool whiteAgentPixel;
 
 RWTexture2D<float4> AgentMap;
 RWTexture2D<float4> TrailMap;
@@ -19,23 +23,30 @@ RWTexture2D<float4> RenderMap;
 
 RWStructuredBuffer<Agent> agents;
 
+float4 getPixelColor(float4 pixelVal) {
+    float4 c = 0;
+    if (pixelVal.x > 0) c += color;
+    if (pixelVal.y > 0) c += color2;
+    if (pixelVal.z > 0) c += color3;
+    return c;
+}
+
 [numthreads(8,8,1)]
 void DrawAgent (uint3 id : SV_DispatchThreadID)
 {
-    //cleanup the canves
-    RenderMap[id.xy] = 0;
-
-
-    //renders the agent, or the tail if condition is met
-    if (AgentMap[id.xy].x == 1) {
-        if (colorAgent) RenderMap[id.xy] = color;
-        else RenderMap[id.xy] = 1;
-    } else if (showTrail) RenderMap[id.xy] = color * length(TrailMap[id.xy]);
+    //finds the color to paint the agent with
+    float4 finalColor = 0;
+    float4 pixelVal = AgentMap[id.xy];
     
+    if (pixelVal.x > 0 || pixelVal.y > 0 || pixelVal.z > 0) {
+       if (colorAgent)  finalColor = getPixelColor(pixelVal);
+       else if (whiteAgentPixel) finalColor = 1;
+    } else if (showTrail) finalColor = getPixelColor(TrailMap[id.xy]) * length(TrailMap[id.xy]);
+
     //paint the guide agent red
     int2 p = agents[0].position;
     if (highlightGuideAgent && id.x == p.x && id.y == p.y) {
-        int diff = (diffuseSize - 1) / 2;
+        int diff = (guideSize - 1) / 2;
         float4 blurValue = 0;
         for (int offsetX = -diff; offsetX <= diff; offsetX++)
             for (int offsetY = -diff; offsetY <= diff; offsetY++)
@@ -43,11 +54,12 @@ void DrawAgent (uint3 id : SV_DispatchThreadID)
                 int x = id.x + offsetX;
                 int y = id.y + offsetY;
                 if (x >= 0 && x < width && y >= 0 && y < height){
-                    RenderMap[int2(x, y)] = float4(1,0,0,1);
+                    finalColor = float4(1,0,0,1);
                 }
             }
         }
 
+    RenderMap[id.xy] = finalColor;
     AgentMap[id.xy] = 0; // cleaning agent map is part of logic
 }
 

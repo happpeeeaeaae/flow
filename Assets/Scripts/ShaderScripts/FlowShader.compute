@@ -22,6 +22,7 @@ float Random(Agent a) {
 
 int width;
 int height;
+uint agentTypeSize;
 float speed;
 float dt;
 float sideAttractionWeight;
@@ -131,6 +132,16 @@ float2 TurnLeft(Agent a)
         );
 }
 
+float signalStrength(float4 signal, uint type){
+    if (type == 0) {
+        return (signal.x - signal.y - signal.z) / 3 - sideAttractionWeight;
+    } else if (type == 1) {
+        return (-signal.x + signal.y - signal.z) / 3 - sideAttractionWeight;
+    } else {
+        return (-signal.x - signal.y + signal.z) / 3 - sideAttractionWeight;
+    }
+}
+
 RWTexture2D<float4> TrailMap;
 RWTexture2D<float4> AgentMap;
 RWStructuredBuffer<Agent> agents;
@@ -142,16 +153,22 @@ void Flow (uint3 id : SV_DispatchThreadID)
     Agent agent = agents[id.x];
     float2 newPos = agent.position + agent.direction * speed * dt;
 
+    int type;
+    float4 agentFootPrint; // distinguishes between different agent types
+    if (id.x > agentTypeSize + agentTypeSize) {agentFootPrint = float4(0, 0, 1, 1); type = 2;}
+    else if (id.x > agentTypeSize) {agentFootPrint = float4(0, 1, 0, 1); type = 1;}
+    else {agentFootPrint = float4(1, 0, 0, 1); type = 0;}
+
     agent.position = newPos;
     agent = Bounce(agent);
 
-    float2 rightSensor = RightSensor(agent);
-    float2 leftSensor = LeftSensor(agent);
-    float2 centerSensor = CenterSensor(agent);
+    float4 rightSensor = TrailMap[RightSensor(agent)];
+    float4 leftSensor = TrailMap[LeftSensor(agent)];
+    float4 centerSensor = TrailMap[CenterSensor(agent)];
 
-    float rightSignal = (TrailMap[rightSensor].x + TrailMap[rightSensor].y + TrailMap[rightSensor].z) / 3 * sideAttractionWeight;
-    float leftSignal = (TrailMap[leftSensor].x + TrailMap[leftSensor].y + TrailMap[leftSensor].z) / 3 * sideAttractionWeight;
-    float centerSignal = (TrailMap[centerSensor].x + TrailMap[centerSensor].y + TrailMap[centerSensor].z) / 3 * centerAttractionWeight;
+    float rightSignal = signalStrength(rightSensor, type);
+    float leftSignal = signalStrength(leftSensor, type);
+    float centerSignal = signalStrength(centerSensor, type);
 
     float strongestSignal = max(max(rightSignal, leftSignal), centerSignal);
 
@@ -160,6 +177,6 @@ void Flow (uint3 id : SV_DispatchThreadID)
     else if (leftSignal == strongestSignal) agent.direction = TurnLeft(agent);
 
     agents[id.x] = agent;
-    TrailMap[newPos] = 1;
-    AgentMap[newPos] = 1;
+    TrailMap[newPos] += agentFootPrint;;
+    AgentMap[newPos] += agentFootPrint;
 }
