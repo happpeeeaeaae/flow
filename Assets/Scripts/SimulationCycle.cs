@@ -316,7 +316,6 @@ public class SimulationCycle : MonoBehaviour
 
     void dispatchDrawAgentShader()
     {
-        drawAgentShader.SetInt("guideSize", guideSize);
         drawAgentShader.SetInt("width", width);
         drawAgentShader.SetInt("height", height);
         drawAgentShader.SetBool("showTrail", showTrail);
@@ -333,6 +332,17 @@ public class SimulationCycle : MonoBehaviour
         drawAgentShader.SetBuffer(KERNEL_NUM, "agents", agentBuffer);
 
         drawAgentShader.Dispatch(KERNEL_NUM, width / IMAGE_THREAD_GROUP_SIZE, height / IMAGE_THREAD_GROUP_SIZE, 1);
+
+        if (highlightGuideAgent)
+        {
+            drawAgentShader.SetInt("width", width);
+            drawAgentShader.SetInt("height", height);
+
+            drawAgentShader.SetBuffer(1, "agents", agentBuffer);
+            drawAgentShader.SetTexture(1, "RenderMap", renderMap);
+
+            drawAgentShader.Dispatch(1, 1, 1, 1);
+        }
     }
 
     void dispatchShaders()
@@ -352,13 +362,13 @@ public class SimulationCycle : MonoBehaviour
 
     void Start()
     {
+        Application.targetFrameRate = targetFrameRate;
         // StartSimulation();
     }
 
     private void Update()
     {
         if (!simHasStarted) return;
-        Application.targetFrameRate = targetFrameRate;
         dispatchShaders();
     }
 

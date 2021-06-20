@@ -166,9 +166,9 @@ void Flow (uint3 id : SV_DispatchThreadID)
     float4 leftSensor = TrailMap[LeftSensor(agent)];
     float4 centerSensor = TrailMap[CenterSensor(agent)];
 
-    float rightSignal = signalStrength(rightSensor, type);
-    float leftSignal = signalStrength(leftSensor, type);
-    float centerSignal = signalStrength(centerSensor, type);
+    float rightSignal = signalStrength(rightSensor, type) * sideAttractionWeight;
+    float leftSignal = signalStrength(leftSensor, type) * sideAttractionWeight;
+    float centerSignal = signalStrength(centerSensor, type) * centerAttractionWeight;
 
     float strongestSignal = max(max(rightSignal, leftSignal), centerSignal);
 

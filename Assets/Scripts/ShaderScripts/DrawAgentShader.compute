@@ -1,12 +1,11 @@
 #pragma kernel DrawAgent
+#pragma kernel PostRender
 
 struct Agent {
     float2 position;
     float2 direction;
 };
 
-
-uint guideSize;
 int width;
 int height;
 float4 color;
@@ -43,23 +42,21 @@ void DrawAgent (uint3 id : SV_DispatchThreadID)
        else if (whiteAgentPixel) finalColor = 1;
     } else if (showTrail) finalColor = getPixelColor(TrailMap[id.xy]) * length(TrailMap[id.xy]);
 
+    RenderMap[id.xy] = finalColor;
+
+
+    AgentMap[id.xy] = 0; // cleaning agent map is part of logic
+}
+
+[numthreads(8,8,1)]
+void PostRender (uint3 id : SV_DispatchThreadID)
+{
     //paint the guide agent red
     int2 p = agents[0].position;
-    if (highlightGuideAgent && id.x == p.x && id.y == p.y) {
-        int diff = (guideSize - 1) / 2;
-        float4 blurValue = 0;
-        for (int offsetX = -diff; offsetX <= diff; offsetX++)
-            for (int offsetY = -diff; offsetY <= diff; offsetY++)
-            {
-                int x = id.x + offsetX;
-                int y = id.y + offsetY;
-                if (x >= 0 && x < width && y >= 0 && y < height){
-                    finalColor = float4(1,0,0,1);
-                }
-            }
-        }
-
-    RenderMap[id.xy] = finalColor;
-    AgentMap[id.xy] = 0; // cleaning agent map is part of logic
+    int x = id.x + p.x;
+    int y = id.y + p.y;
+    if (x >= 0 && x < width && y >= 0 && y < height){
+        RenderMap[int2(x, y)] = float4(1,0,0,1);
+    }
 }
 
